@@ -10,10 +10,6 @@
 #define RP2040_BOOTLOADER_DOUBLE_TAP_RESET
 #define RP2040_BOOTLOADER_DOUBLE_TAP_RESET_TIMEOUT 200U
 
-// Unique USB serial from the flash chip ID, like the MNT firmware does
-// since "port USB string handling from pocket-hid".
-#define SERIAL_NUMBER_USE_HARDWARE_ID TRUE
-
 // System controller UART (UART1, GP4 TX / GP5 RX).
 #define UART_DRIVER SIOD1
 #define UART_TX_PIN GP4

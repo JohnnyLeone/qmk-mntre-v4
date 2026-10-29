@@ -18,7 +18,7 @@ QMK firmware for the RP2040-based [MNT Reform](https://mntre.com/) Keyboard
 - Reform system controller over UART: power on/off, wake, status, battery
 - Circle key: tap for F24, hold for the menu layer, hold 2 s to power on
   while the laptop is off
-- USB serial number from the RP2040 flash unique ID
+- USB serial number from the RP2040 flash unique ID (QMK default on ChibiOS)
 - Optional VIA keymap
 
 ## Building
