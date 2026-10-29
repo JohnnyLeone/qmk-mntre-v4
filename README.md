@@ -9,6 +9,20 @@ QMK firmware for the RP2040-based [MNT Reform](https://mntre.com/) Keyboard
 `mntre` and `mntre_v3`, with the goal of submitting it there. See
 [MAINLINING.md](MAINLINING.md).
 
+## Download
+
+Prebuilt firmware is attached to each
+[release](https://github.com/JohnnyLeone/qmk-mntre-v4/releases/latest):
+
+- `mntre_v4-laptop.uf2`: keyboard inside an MNT Reform (system controller
+  keys, battery and status pages)
+- `mntre_v4-standalone.uf2`: standalone USB keyboard
+- `mntre_v4-*-via.uf2`: the same with VIA, plus `mntre_v4.json` for VIA
+
+Every push to `main` also builds these as a workflow artifact on the
+[Actions](https://github.com/JohnnyLeone/qmk-mntre-v4/actions) page. See
+[Flashing](#flashing) to install one.
+
 ## Features
 
 - Active-high 6x14 matrix (custom scan), 80 keys
@@ -56,7 +70,8 @@ weekly; the UF2s are attached to each run as artifacts.
 
 ## Flashing
 
-On macOS, prefer UF2 copy over `picotool load`:
+Copy the `.uf2` onto the `RPI-RP2` drive, or on macOS use (prefer UF2 copy
+over `picotool load`):
 
 ```sh
 ./flash-uf2-macos.sh
@@ -173,6 +188,16 @@ python3 tools/gen_via.py keyboards/mntre_v4/keyboard.json > via/mntre_v4.json
 
 The VIA keymap lives in `keymaps/via` rather than in the keyboard folder,
 as qmk_firmware no longer accepts VIA keymaps.
+
+## Releasing
+
+Pushing a `v*` tag builds all variants and publishes them as a GitHub
+release, with SHA256SUMS and the VIA definition:
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
 
 ## License
 

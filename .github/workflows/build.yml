@@ -2,6 +2,8 @@ name: Build
 
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
   # Catch upstream QMK changes that break the port.
@@ -12,6 +14,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: ghcr.io/qmk/qmk_cli
+    permissions:
+      contents: write # create releases for tags
     steps:
       - uses: actions/checkout@v4
 
@@ -37,14 +41,31 @@ jobs:
         working-directory: qmk_firmware
         run: |
           cp -r ../keymaps/via keyboards/mntre_v4/keymaps/
-          make mntre_v4:default mntre_v4:via
-          # Standalone keyboard, without the system controller.
-          mv mntre_v4_default.uf2 mntre_v4_default-laptop.uf2
-          rm -rf .build/obj_mntre_v4_default
-          make mntre_v4:default REFORM4_SYSCTL=no
-          mv mntre_v4_default.uf2 mntre_v4_default-standalone.uf2
+          mkdir -p ../dist
+          # Each variant from a clean object directory, as the make
+          # variables change compile flags.
+          build() {
+            out="$1"; shift
+            rm -rf .build/obj_mntre_v4_*
+            make "$@"
+            mv mntre_v4_*.uf2 "../dist/$out"
+          }
+          build mntre_v4-laptop.uf2 mntre_v4:default
+          build mntre_v4-standalone.uf2 mntre_v4:default REFORM4_SYSCTL=no
+          build mntre_v4-laptop-via.uf2 mntre_v4:via
+          build mntre_v4-standalone-via.uf2 mntre_v4:via REFORM4_SYSCTL=no
+          cp ../via/mntre_v4.json ../dist/
+          cd ../dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
 
       - uses: actions/upload-artifact@v4
         with:
           name: mntre_v4-firmware
-          path: qmk_firmware/mntre_v4_*.uf2
+          path: dist/*
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: .github/release-notes.md
+          generate_release_notes: true
