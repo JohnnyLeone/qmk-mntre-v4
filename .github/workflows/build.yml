@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  # Catch upstream QMK changes that break the port.
+  schedule:
+    - cron: "17 4 * * 1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out qmk_firmware
+        uses: actions/checkout@v4
+        with:
+          repository: qmk/qmk_firmware
+          path: qmk_firmware
+          submodules: recursive
+
+      - name: Prepare
+        run: |
+          git config --global --add safe.directory '*'
+          cp -r keyboards/mntre_v4 qmk_firmware/keyboards/
+
+      # Lint the keyboard as it would be submitted upstream, before the
+      # out-of-tree via keymap is added.
+      - name: Lint
+        working-directory: qmk_firmware
+        run: qmk lint -kb mntre_v4 --strict
+
+      - name: Compile
+        working-directory: qmk_firmware
+        run: |
+          cp -r ../keymaps/via keyboards/mntre_v4/keymaps/
+          make mntre_v4:default mntre_v4:via
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mntre_v4-firmware
+          path: qmk_firmware/mntre_v4_*.uf2
