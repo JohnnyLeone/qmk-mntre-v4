@@ -4,8 +4,9 @@
 # Copy the keyboard into a qmk_firmware checkout, build, and collect the UF2
 # in build/.
 #
-#   ./build.sh            # default keymap
-#   ./build.sh via        # VIA keymap (from keymaps/via)
+#   ./build.sh                            # default keymap
+#   ./build.sh via                        # VIA keymap (from keymaps/via)
+#   ./build.sh default REFORM4_SYSCTL=no  # extra make variables
 #
 # QMK_HOME defaults to ~/qmk_firmware. If the qmk CLI is not on PATH, set
 # QMK_VENV to a virtualenv with `pip install qmk -r requirements.txt`.
@@ -13,6 +14,13 @@
 set -eu
 
 keymap="${1:-default}"
+[ $# -gt 0 ] && shift
+# Extra make variables also go into the UF2 name, e.g.
+# mntre_v4_default-REFORM4_SYSCTL_no.uf2.
+suffix=""
+for var in "$@"; do
+    suffix="$suffix-$(echo "$var" | tr '=' '_')"
+done
 here="$(cd "$(dirname "$0")" && pwd)"
 qmk_home="${QMK_HOME:-$HOME/qmk_firmware}"
 
@@ -28,8 +36,8 @@ fi
 # Generated headers (default_keyboard.h) are not refreshed when files are
 # added or renamed, so always start from a clean object directory.
 rm -rf "$qmk_home/.build/obj_mntre_v4_$keymap"
-make -C "$qmk_home" "mntre_v4:$keymap"
+make -C "$qmk_home" "mntre_v4:$keymap" "$@"
 
 mkdir -p "$here/build"
-cp "$qmk_home/mntre_v4_$keymap.uf2" "$here/build/"
-echo "UF2: $here/build/mntre_v4_$keymap.uf2"
+cp -f "$qmk_home/mntre_v4_$keymap.uf2" "$here/build/mntre_v4_$keymap$suffix.uf2"
+echo "UF2: $here/build/mntre_v4_$keymap$suffix.uf2"

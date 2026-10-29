@@ -27,6 +27,12 @@ typedef enum {
     R4_OLED_STATUS,
 } reform4_oled_page_t;
 
+#ifdef OLED_ENABLE
 void reform4_oled_show(reform4_oled_page_t page, uint32_t duration_ms);
 void reform4_oled_message(const char *line1, const char *line2, uint32_t duration_ms);
 void reform4_oled_power_on_progress(uint8_t percent);
+#else
+static inline void reform4_oled_show(reform4_oled_page_t page, uint32_t duration_ms) {}
+static inline void reform4_oled_message(const char *line1, const char *line2, uint32_t duration_ms) {}
+static inline void reform4_oled_power_on_progress(uint8_t percent) {}
+#endif

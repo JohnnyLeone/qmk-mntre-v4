@@ -28,6 +28,18 @@ QMK firmware for the RP2040-based [MNT Reform](https://mntre.com/) Keyboard
 ./build.sh via      # VIA keymap     -> build/mntre_v4_via.uf2
 ```
 
+### Standalone keyboard
+
+Without the Reform system controller (MNT's standalone variant), build with
+`REFORM4_SYSCTL=no`. This drops the UART code; the power, wake, battery and
+status keys then do nothing, and Circle long-press power-on is disabled:
+
+```sh
+./build.sh default REFORM4_SYSCTL=no   # -> build/mntre_v4_default-REFORM4_SYSCTL_no.uf2
+```
+
+Other make variables pass through the same way, e.g. `OLED_ENABLE=no`.
+
 `build.sh` copies `keyboards/mntre_v4` (and `keymaps/<keymap>` if present)
 into `$QMK_HOME` (default `~/qmk_firmware`) and runs
 `make mntre_v4:<keymap>`. Without the `qmk` CLI on `PATH`, use a virtualenv:

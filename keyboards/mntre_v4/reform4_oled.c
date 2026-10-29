@@ -9,8 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "sysctl.h"
-#include "version.h"
+#ifdef REFORM4_SYSCTL_ENABLE
+#    include "sysctl.h"
+#    include "version.h"
+#endif
 
 #define OLED_COLS 21
 #define BATTERY_REFRESH_MS 1000
@@ -20,7 +22,9 @@ static reform4_oled_page_t page = R4_OLED_NONE;
 static uint32_t            page_until;
 static char                message[2][OLED_COLS + 1];
 static uint8_t             power_on_percent;
-static uint32_t            battery_refresh_at;
+#ifdef REFORM4_SYSCTL_ENABLE
+static uint32_t battery_refresh_at;
+#endif
 
 // What is on screen, to clear exactly once per page change.
 typedef enum {
@@ -37,9 +41,11 @@ void reform4_oled_show(reform4_oled_page_t new_page, uint32_t duration_ms) {
     page_until = timer_read32() + duration_ms;
     // Redraw from scratch, also when the same page is requested again.
     shown = SHOWN_NONE;
+#ifdef REFORM4_SYSCTL_ENABLE
     if (new_page == R4_OLED_BATTERY) {
         battery_refresh_at = timer_read32() + BATTERY_REFRESH_MS;
     }
+#endif
 }
 
 void reform4_oled_message(const char *line1, const char *line2, uint32_t duration_ms) {
@@ -124,14 +130,18 @@ static void render_power_on_bar(uint8_t row) {
 }
 
 // Legend for the Circle layer, mirroring the MNT firmware's Circle menu.
-// Three rows of text alternate between two pages while the layer is held.
-static const char *const legend[2][3] = {
-    {"1 Power on   0 Off", "B Battery  S Status", "SPC Wake     L Logo"},
+// With the system controller, three rows of text alternate between two
+// pages while the layer is held.
+static const char *const legend[][3] = {
     {"F1-6 Bright/Hue/Sat", "F7/8 Mode  F9 On/Off", "R Reset U USB X Boot"},
+#ifdef REFORM4_SYSCTL_ENABLE
+    {"1 Power on   0 Off", "B Battery  S Status", "SPC Wake     L Logo"},
+#endif
 };
+#define LEGEND_PAGES (sizeof(legend) / sizeof(legend[0]))
 
 static void render_circle_menu(void) {
-    const uint8_t legend_page = (timer_elapsed32(shown_since) / LEGEND_PAGE_MS) % 2;
+    const uint8_t legend_page = (timer_elapsed32(shown_since) / LEGEND_PAGE_MS) % LEGEND_PAGES;
     for (uint8_t row = 0; row < 3; row++) {
         write_row(row, legend[legend_page][row]);
     }
@@ -142,6 +152,7 @@ static void render_circle_menu(void) {
     }
 }
 
+#ifdef REFORM4_SYSCTL_ENABLE
 static void render_no_reply(void) {
     write_row(0, "");
     write_row(1, "No reply from the");
@@ -230,6 +241,7 @@ static void render_status(void) {
     }
     write_row(3, "QMK " QMK_VERSION);
 }
+#endif
 
 static void render_page(void) {
     switch (page) {
@@ -243,10 +255,14 @@ static void render_page(void) {
             render_rgb();
             break;
         case R4_OLED_BATTERY:
+#ifdef REFORM4_SYSCTL_ENABLE
             render_battery();
+#endif
             break;
         case R4_OLED_STATUS:
+#ifdef REFORM4_SYSCTL_ENABLE
             render_status();
+#endif
             break;
         case R4_OLED_NONE:
             break;

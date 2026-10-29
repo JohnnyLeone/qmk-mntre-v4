@@ -5,15 +5,17 @@
 
 #include <stdio.h>
 
-#include "sysctl.h"
-#include "usb_device_state.h"
 #include "usb_main.h"
+
+#ifdef REFORM4_SYSCTL_ENABLE
+#    include "sysctl.h"
+#    include "usb_device_state.h"
 
 _Static_assert(REFORM4_CIRCLE_POWER_ON_MS > 500, "REFORM4_CIRCLE_POWER_ON_MS must exceed the 500ms countdown delay");
 
 // Circle long-press tracking. The countdown starts after this delay so a
 // normal hold for the Circle layer does not flash the progress bar.
-#define CIRCLE_COUNTDOWN_DELAY_MS 500
+#    define CIRCLE_COUNTDOWN_DELAY_MS 500
 
 static bool     circle_held;
 static bool     circle_armed;
@@ -21,6 +23,7 @@ static uint16_t circle_pressed_at;
 
 // Backlight switched off by a power-off command, restored on power-on.
 static bool backlight_off_for_power;
+#endif
 
 // Lighting keys repeat while held, like the MNT firmware's menu. Repeats
 // skip EEPROM; the final value is stored once on release.
@@ -124,6 +127,7 @@ static bool confirmed(uint16_t keycode, const char *key, const char *action) {
 
 // Draw a final message right away; the MCU resets before the next OLED task.
 static void flush_message(const char *line1, const char *line2) {
+#ifdef OLED_ENABLE
     oled_clear();
     oled_set_cursor(0, 1);
     oled_write_ln(line1, false);
@@ -131,8 +135,10 @@ static void flush_message(const char *line1, const char *line2) {
         oled_write_ln(line2, false);
     }
     oled_render_dirty(true);
+#endif
 }
 
+#ifdef REFORM4_SYSCTL_ENABLE
 static void reform4_power_on(void) {
     sysctl_power_on();
     if (backlight_off_for_power) {
@@ -193,21 +199,79 @@ static void circle_task(void) {
     }
 }
 
+// System controller keys; false when the keycode is not one of them.
+static bool process_sysctl_keycode(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case R4_PWR_ON:
+            if (record->event.pressed) reform4_power_on();
+            return true;
+        case R4_PWR_OFF:
+            if (record->event.pressed) reform4_power_off();
+            return true;
+        case R4_WAKE:
+            if (record->event.pressed) {
+                sysctl_wake();
+                reform4_oled_message("Wake sent.", NULL, 1500);
+            }
+            return true;
+        case R4_STATUS:
+            if (record->event.pressed) {
+                sysctl_request_status();
+                reform4_oled_show(R4_OLED_STATUS, 5000);
+            }
+            return true;
+        case R4_BATT:
+            if (record->event.pressed) {
+                sysctl_request_battery(false);
+                reform4_oled_show(R4_OLED_BATTERY, 10000);
+            }
+            return true;
+    }
+
+    // Typing while the laptop is off: show how to power it up, like the
+    // MNT firmware's hint page.
+    if (record->event.pressed && sysctl_power_state() == SYSCTL_POWER_OFF && (IS_BASIC_KEYCODE(keycode) || IS_MODIFIER_KEYCODE(keycode))) {
+        reform4_oled_message("Computer is off.", "Hold CIRCLE: power up", 3000);
+    }
+    return false;
+}
+#else
+// Standalone keyboard (MNT's KBD_MODE_STANDALONE): no system controller, so
+// its keys do nothing.
+static bool process_sysctl_keycode(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case R4_PWR_ON:
+        case R4_PWR_OFF:
+        case R4_WAKE:
+        case R4_STATUS:
+        case R4_BATT:
+            return true;
+    }
+    return false;
+}
+#endif
+
 void keyboard_post_init_kb(void) {
+#ifdef REFORM4_SYSCTL_ENABLE
     sysctl_init();
+#endif
     reform4_oled_show(R4_OLED_SPLASH, 1500);
     keyboard_post_init_user();
 }
 
 void housekeeping_task_kb(void) {
+#ifdef REFORM4_SYSCTL_ENABLE
     sysctl_task();
     circle_task();
+#endif
     light_repeat_task();
     housekeeping_task_user();
 }
 
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
+#ifdef REFORM4_SYSCTL_ENABLE
     track_circle(keycode, record);
+#endif
     track_light_repeat(keycode, record);
     if (record->event.pressed && keycode != confirm_keycode) {
         confirm_keycode = KC_NO;
@@ -217,31 +281,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
 
+    if (process_sysctl_keycode(keycode, record)) {
+        return false;
+    }
+
     switch (keycode) {
-        case R4_PWR_ON:
-            if (record->event.pressed) reform4_power_on();
-            return false;
-        case R4_PWR_OFF:
-            if (record->event.pressed) reform4_power_off();
-            return false;
-        case R4_WAKE:
-            if (record->event.pressed) {
-                sysctl_wake();
-                reform4_oled_message("Wake sent.", NULL, 1500);
-            }
-            return false;
-        case R4_STATUS:
-            if (record->event.pressed) {
-                sysctl_request_status();
-                reform4_oled_show(R4_OLED_STATUS, 5000);
-            }
-            return false;
-        case R4_BATT:
-            if (record->event.pressed) {
-                sysctl_request_battery(false);
-                reform4_oled_show(R4_OLED_BATTERY, 10000);
-            }
-            return false;
         case R4_LOGO:
             if (record->event.pressed) reform4_oled_show(R4_OLED_SPLASH, 1500);
             return false;
@@ -269,12 +313,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                 reform4_oled_show(R4_OLED_RGB, 2000);
             }
             return true;
-    }
-
-    // Typing while the laptop is off: show how to power it up, like the
-    // MNT firmware's hint page.
-    if (record->event.pressed && sysctl_power_state() == SYSCTL_POWER_OFF && (IS_BASIC_KEYCODE(keycode) || IS_MODIFIER_KEYCODE(keycode))) {
-        reform4_oled_message("Computer is off.", "Hold CIRCLE: power up", 3000);
     }
 
     return true;

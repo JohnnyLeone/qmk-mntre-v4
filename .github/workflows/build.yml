@@ -38,6 +38,11 @@ jobs:
         run: |
           cp -r ../keymaps/via keyboards/mntre_v4/keymaps/
           make mntre_v4:default mntre_v4:via
+          # Standalone keyboard, without the system controller.
+          mv mntre_v4_default.uf2 mntre_v4_default-laptop.uf2
+          rm -rf .build/obj_mntre_v4_default
+          make mntre_v4:default REFORM4_SYSCTL=no
+          mv mntre_v4_default.uf2 mntre_v4_default-standalone.uf2
 
       - uses: actions/upload-artifact@v4
         with:
