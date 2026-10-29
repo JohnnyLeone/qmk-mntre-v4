@@ -25,14 +25,19 @@ static uint16_t circle_pressed_at;
 static bool backlight_off_for_power;
 #endif
 
-// Lighting keys repeat while held, like the MNT firmware's menu. Repeats
-// skip EEPROM; the final value is stored once on release.
+// Lighting keys are handled here instead of by QMK: changes skip EEPROM and
+// are stored once LIGHT_SAVE_DELAY_MS after the last one. An RP2040 flash
+// write stalls the chip (and USB), so stepping through effects or holding a
+// brightness key should not write on every step. Brightness, hue,
+// saturation and speed repeat while held, like the MNT firmware's menu.
 #define LIGHT_REPEAT_DELAY_MS 300
 #define LIGHT_REPEAT_INTERVAL_MS 40
+#define LIGHT_SAVE_DELAY_MS 3000
 
 static uint16_t light_repeat_keycode;
 static uint32_t light_repeat_at;
-static bool     light_repeated;
+static bool     light_save_pending;
+static uint32_t light_save_at;
 
 // Risky Circle menu actions need a second press within this window, like
 // the MNT firmware's "Accept Risk" confirmation.
@@ -41,73 +46,104 @@ static bool     light_repeated;
 static uint16_t confirm_keycode;
 static uint32_t confirm_until;
 
-static bool light_step(uint16_t keycode) {
+static bool light_repeatable(uint16_t keycode) {
     switch (keycode) {
         case RM_VALU:
-            rgb_matrix_increase_val_noeeprom();
-            return true;
         case RM_VALD:
-            rgb_matrix_decrease_val_noeeprom();
-            return true;
         case RM_HUEU:
-            rgb_matrix_increase_hue_noeeprom();
-            return true;
         case RM_HUED:
-            rgb_matrix_decrease_hue_noeeprom();
-            return true;
         case RM_SATU:
-            rgb_matrix_increase_sat_noeeprom();
-            return true;
         case RM_SATD:
-            rgb_matrix_decrease_sat_noeeprom();
-            return true;
         case RM_SPDU:
-            rgb_matrix_increase_speed_noeeprom();
-            return true;
         case RM_SPDD:
-            rgb_matrix_decrease_speed_noeeprom();
             return true;
         default:
             return false;
     }
 }
 
-static void light_repeat_stop(void) {
-    if (light_repeated) {
-        rgb_matrix_sethsv(rgb_matrix_get_hue(), rgb_matrix_get_sat(), rgb_matrix_get_val());
-        rgb_matrix_set_speed(rgb_matrix_get_speed());
+static void light_step(uint16_t keycode) {
+    const bool shifted = get_mods() & MOD_MASK_SHIFT;
+    switch (keycode) {
+        case RM_ON:
+            rgb_matrix_enable_noeeprom();
+            break;
+        case RM_OFF:
+            rgb_matrix_disable_noeeprom();
+            break;
+        case RM_TOGG:
+            rgb_matrix_toggle_noeeprom();
+            break;
+        case RM_NEXT:
+            shifted ? rgb_matrix_step_reverse_noeeprom() : rgb_matrix_step_noeeprom();
+            break;
+        case RM_PREV:
+            shifted ? rgb_matrix_step_noeeprom() : rgb_matrix_step_reverse_noeeprom();
+            break;
+        case RM_FLGN:
+            rgb_matrix_flags_step_noeeprom();
+            break;
+        case RM_FLGP:
+            rgb_matrix_flags_step_reverse_noeeprom();
+            break;
+        case RM_VALU:
+            rgb_matrix_increase_val_noeeprom();
+            break;
+        case RM_VALD:
+            rgb_matrix_decrease_val_noeeprom();
+            break;
+        case RM_HUEU:
+            rgb_matrix_increase_hue_noeeprom();
+            break;
+        case RM_HUED:
+            rgb_matrix_decrease_hue_noeeprom();
+            break;
+        case RM_SATU:
+            rgb_matrix_increase_sat_noeeprom();
+            break;
+        case RM_SATD:
+            rgb_matrix_decrease_sat_noeeprom();
+            break;
+        case RM_SPDU:
+            rgb_matrix_increase_speed_noeeprom();
+            break;
+        case RM_SPDD:
+            rgb_matrix_decrease_speed_noeeprom();
+            break;
+        default:
+            return;
     }
-    light_repeat_keycode = KC_NO;
-    light_repeated       = false;
+    light_save_pending = true;
+    light_save_at      = timer_read32() + LIGHT_SAVE_DELAY_MS;
 }
 
-static void track_light_repeat(uint16_t keycode, keyrecord_t *record) {
+static void process_light_keycode(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
-        light_repeat_stop();
-        // The first step is QMK's own (stored) keypress; repeats follow.
-        switch (keycode) {
-            case RM_VALU:
-            case RM_VALD:
-            case RM_HUEU:
-            case RM_HUED:
-            case RM_SATU:
-            case RM_SATD:
-            case RM_SPDU:
-            case RM_SPDD:
-                light_repeat_keycode = keycode;
-                light_repeat_at      = timer_read32() + LIGHT_REPEAT_DELAY_MS;
-                break;
-        }
+        light_step(keycode);
+        light_repeat_keycode = light_repeatable(keycode) ? keycode : KC_NO;
+        light_repeat_at      = timer_read32() + LIGHT_REPEAT_DELAY_MS;
     } else if (keycode == light_repeat_keycode) {
-        light_repeat_stop();
+        light_repeat_keycode = KC_NO;
     }
 }
 
-static void light_repeat_task(void) {
-    if (light_repeat_keycode != KC_NO && timer_expired32(timer_read32(), light_repeat_at)) {
+// Store a pending lighting change now (before a reset, or before power off
+// turns the backlight off in RAM, which must not be stored).
+static void light_save_now(void) {
+    if (light_save_pending) {
+        light_save_pending = false;
+        eeconfig_force_flush_rgb_matrix();
+    }
+}
+
+static void light_task(void) {
+    const uint32_t now = timer_read32();
+    if (light_repeat_keycode != KC_NO && timer_expired32(now, light_repeat_at)) {
         light_step(light_repeat_keycode);
-        light_repeated  = true;
-        light_repeat_at = timer_read32() + LIGHT_REPEAT_INTERVAL_MS;
+        light_repeat_at = now + LIGHT_REPEAT_INTERVAL_MS;
+    }
+    if (light_save_pending && timer_expired32(now, light_save_at)) {
+        light_save_now();
     }
 }
 
@@ -149,6 +185,7 @@ static void reform4_power_on(void) {
 }
 
 static void reform4_power_off(void) {
+    light_save_now();
     // The MNT firmware darkens the backlight before cutting the rails.
     if (rgb_matrix_is_enabled()) {
         rgb_matrix_disable_noeeprom();
@@ -251,6 +288,14 @@ static bool process_sysctl_keycode(uint16_t keycode, keyrecord_t *record) {
 }
 #endif
 
+bool shutdown_kb(bool jump_to_bootloader) {
+    if (!shutdown_user(jump_to_bootloader)) {
+        return false;
+    }
+    light_save_now();
+    return true;
+}
+
 void keyboard_post_init_kb(void) {
 #ifdef REFORM4_SYSCTL_ENABLE
     sysctl_init();
@@ -264,7 +309,7 @@ void housekeeping_task_kb(void) {
     sysctl_task();
     circle_task();
 #endif
-    light_repeat_task();
+    light_task();
     housekeeping_task_user();
 }
 
@@ -272,7 +317,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 #ifdef REFORM4_SYSCTL_ENABLE
     track_circle(keycode, record);
 #endif
-    track_light_repeat(keycode, record);
     if (record->event.pressed && keycode != confirm_keycode) {
         confirm_keycode = KC_NO;
     }
@@ -308,11 +352,12 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
         case RGB_MATRIX_KEYCODE_RANGE:
+            process_light_keycode(keycode, record);
             // The Circle legend already shows the values while held.
             if (record->event.pressed && !layer_state_is(R4_LAYER_CIRCLE)) {
                 reform4_oled_show(R4_OLED_RGB, 2000);
             }
-            return true;
+            return false;
     }
 
     return true;

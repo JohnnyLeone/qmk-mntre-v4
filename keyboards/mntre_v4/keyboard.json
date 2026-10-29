@@ -29,7 +29,7 @@
         "driver": "vendor"
     },
     "rgb_matrix": {
-        "driver": "ws2812",
+        "driver": "custom",
         "sleep": true,
         "default": {
             "animation": "solid_color",
@@ -39,18 +39,7 @@
         "animations": {
             "alphas_mods": true,
             "gradient_left_right": true,
-            "breathing": true,
-            "band_spiral_val": true,
-            "cycle_all": true,
-            "cycle_left_right": true,
-            "cycle_out_in": true,
-            "rainbow_moving_chevron": true,
-            "jellybean_raindrops": true,
-            "typing_heatmap": true,
-            "solid_reactive_simple": true,
-            "solid_reactive_multiwide": true,
-            "splash": true,
-            "solid_splash": true
+            "gradient_up_down": true
         },
         "layout": [
                 {"matrix": [0, 0], "x": 8, "y": 5, "flags": 1},

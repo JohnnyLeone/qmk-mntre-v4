@@ -24,6 +24,10 @@
 #    define REFORM4_CIRCLE_POWER_ON_MS 2000
 #endif
 
+// rgb_driver.c drives the WS2812 chain for RGB Matrix (driver "custom"),
+// so the WS2812 driver does not derive its LED count by itself.
+#define WS2812_LED_COUNT RGB_MATRIX_LED_COUNT
+
 // SSD1306 128x32 on I2C0 (GP0 SDA / GP1 SCL).
 #define I2C_DRIVER I2CD0
 #define I2C1_SDA_PIN GP0

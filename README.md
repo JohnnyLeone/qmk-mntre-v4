@@ -12,7 +12,8 @@ QMK firmware for the RP2040-based [MNT Reform](https://mntre.com/) Keyboard
 ## Features
 
 - Active-high 6x14 matrix (custom scan), 80 keys
-- Per-key RGB Matrix backlight (80 WS2812), off while the host sleeps
+- Per-key RGB Matrix backlight (80 WS2812), static effects only (see
+  [Backlight](#backlight)), off while the host sleeps
 - SSD1306 128x32 OLED: MNT logo, Circle menu legend, battery and system
   controller pages, using MNT's font with its battery and logo glyphs
 - Reform system controller over UART: power on/off, wake, status, battery
@@ -100,12 +101,30 @@ alternates between two pages on the OLED:
 | `F1`/`F2`   | backlight brightness down / up             |
 | `F3`/`F4`   | backlight hue down / up                    |
 | `F5`/`F6`   | backlight saturation down / up             |
-| `F7`/`F8`   | previous / next backlight effect           |
+| `F7`/`F8`   | previous / next backlight effect (Shift reverses) |
 | `F9`        | backlight on / off                         |
-| `F10`/`F11` | effect speed down / up                     |
+| `F10`/`F11` | shift the gradient / modifier colour       |
 
-Brightness, hue, saturation and speed repeat while held; the final value is
-saved once on release.
+Brightness, hue, saturation and the gradient shift repeat while held.
+Lighting changes are saved to flash 3 seconds after the last one, or right
+before a reset or bootloader jump (an RP2040 flash write briefly stalls the
+chip, USB included).
+
+## Backlight
+
+The effects are solid colour, `alphas_mods` (modifiers in a second colour)
+and the left-right and up-down gradients. They are static, and the RGB
+Matrix driver in `rgb_driver.c` only sends a frame to the LEDs when a colour
+changes.
+
+A steady stream of LED frames disturbs USB on this board: hosts log
+repeated `reset full-speed USB device` messages, keys drop and the
+backlight flickers or goes dark until the keyboard is replugged. It happens
+at any non-zero brightness, so it is not a USB current limit, and slower
+edges on the LED data pin did not help. Stock RGB Matrix re-sends every
+frame (~60 per second) even for a solid colour, and animated or
+key-reactive effects change every frame, so those are disabled. MNT's
+firmware only sets static colours as well.
 
 Holding Circle alone for 2 seconds powers the laptop on, like the MNT
 firmware. It only arms while the laptop is off (no USB host has configured
