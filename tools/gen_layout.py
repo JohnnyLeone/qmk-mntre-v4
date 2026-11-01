@@ -24,9 +24,11 @@ keys += row(5, [(0, 1.25), (1, 1.5), (2, 1.5), (3, 1.5), (4, 2), (6, 1.5)]
                + ones(range(7, 11)) + [(11, 1.25)])
 assert len(keys) == 80, len(keys)
 
-# Keys lit as "modifier" (LED_FLAG_MODIFIER) rather than "keylight".
-mods = {(0, 0), (0, 13), (1, 13), (2, 0), (3, 0), (3, 12), (4, 0), (4, 13),
-        (5, 0), (5, 1), (5, 2), (5, 7), (5, 8)}
+# Modifiers, control and navigation keys use the Alphas/Mods secondary color
+# (LED_FLAG_MODIFIER); printable keys, including punctuation, use keylight.
+mods = {(0, 0), (0, 13), (1, 13), (2, 0), (3, 0), (3, 12),
+        (4, 0), (4, 1), (4, 12), (4, 13),
+        (5, 0), (5, 1), (5, 2), (5, 7), (5, 8), (5, 9), (5, 10), (5, 11)}
 
 def num(v):
     return int(v) if float(v).is_integer() else v

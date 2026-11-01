@@ -141,6 +141,11 @@ frame (~60 per second) even for a solid colour, and animated or
 key-reactive effects change every frame, so those are disabled. MNT's
 firmware only sets static colours as well.
 
+Backlight effect 2 (Alphas/Mods) gives modifiers, Esc, Circle, Tab,
+Backspace, Enter, Delete and all four arrow keys the secondary color.
+Printable keys, including backtick/tilde and backslash, use the main color.
+These lighting groups are fixed by physical position, including in VIA.
+
 Holding Circle alone for 2 seconds powers the laptop on, like the MNT
 firmware. It only arms while the laptop is off (no USB host has configured
 the keyboard, or the system controller reported power off), so on a running

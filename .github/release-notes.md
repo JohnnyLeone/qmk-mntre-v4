@@ -1,3 +1,9 @@
+## Changes in v0.1.1
+
+- Alphas/Mods (effect 2) now gives Delete and all four arrow keys the
+  secondary color, alongside the modifiers and control keys. Backtick/tilde
+  and backslash keep the main color with the other punctuation.
+
 ## Which file?
 
 | File | For |
