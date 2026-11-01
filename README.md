@@ -77,8 +77,18 @@ over `picotool load`):
 ./flash-uf2-macos.sh
 ```
 
-Enter the bootloader first (the RP2040 shows up as the `RPI-RP2` drive),
-any of:
+For verified direct USB flashing on Linux, pass the firmware path explicitly:
+
+```sh
+./flash-direct.sh build/mntre_v4_default-REFORM4_SYSCTL_no.uf2
+```
+
+The helper authenticates with sudo while the keyboard is still available,
+then waits five seconds for Hyper + `R`. It verifies the write and requests
+a reboot only if loading and verification succeed. Use the corresponding
+UF2 path for laptop or VIA builds.
+
+The bootloader shows up as the `RPI-RP2` drive. Enter it using any of:
 
 - Hyper + `R`;
 - hold Circle and press `X` twice;
